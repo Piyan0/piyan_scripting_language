@@ -10,11 +10,12 @@ const KEYWORD_ENDIF = "endif"
 const KEYWORD_LOOP= "loop"
 const KEYWORD_BREAK= "break"
 const KEYWORD_ENDLOOP= "endloop"
-const KEYWORD_exit= "exit"
+const KEYWORD_EXIT= "exit"
 
 var variable = {
     x = true,
-    y = 1
+    y = 1,
+    z = true
 }
 
 var _block = {
@@ -22,7 +23,7 @@ var _block = {
     KEYWORD_LOOP : KEYWORD_ENDLOOP,
 }
 
-var _custom_split = {
+var _keyword_split = {
     KEYWORD_IF : (func(line):
         line = line.replace(KEYWORD_IF, "")
         var op = ""
@@ -37,54 +38,47 @@ var _custom_split = {
         ),
 }
 
-var _built_in_keyword_runner = {
+var _runner = {
     # remaining_lines add arg
-    KEYWORD_IF : func(args):
+    KEYWORD_IF : func(args, block):
         var _var = _get_var(args[0])
         var op = args[1]
         var expected_value = args[2]
         
         if _is_compare_pass(_var, str_to_var(expected_value), op):
-            var block = args.back()
-            for line in block:
-                await _run_line(line)
+ 
+            for source in block:
+                if source.source == KEYWORD_EXIT:
+                    return
+                await run_line(source)
+            ,
+        
+    "text" : func(args, block):
+        print("text with ", args[0])        
+        await Engine.get_main_loop().create_timer(1).timeout
+        ,
                 
 }
 
-
-var runner = {
-    text = func(args):
-        print("text with ", args[0])
-}
-
-
-func _init() -> void:
-    var line = "text salwa \"nah ini dia yamg aku maksud bro..\" token_1"
-    var line_2 = ("
-if $y==1
-        text salwa
-        open-inv $my var
-        exit
-        
-        if $x == true
-            text this-is-nested-loop...
-        endif
-endif
-text anjay-mabar
-" 
-    )
-    var lines = _split_lines(line_2)
-    var x = _preparse(lines)
-    print(JSON.stringify(x, "\t"))
-
+    
+func from_text(path):
+    var file = FileAccess.open(path, FileAccess.READ)
+    var lines = _split_lines(file.get_as_text())
+    var parsed = _preparse(lines)
+    for line in parsed:
+        if line.source == KEYWORD_EXIT:
+            return
+        await run_line(line)
+    
+    
 func _split_args(line):
     var args = []
     var word = ""
     var inside_QUOTE = false
     
-    for custom_split_id in _custom_split:
+    for custom_split_id in _keyword_split:
         if line.begins_with(custom_split_id):
-            return _custom_split[custom_split_id].call(line)
+            return _keyword_split[custom_split_id].call(line)
     
     for char in line:
         if char == DELIMITER:
@@ -112,11 +106,10 @@ func _preparse(lines: Array):
             var block_data = _parse_block(lines, KEYWORD_IF, KEYWORD_ENDIF)
             for i in range(0, block_data.line_count):
                 lines.pop_front()
-
             parsed_lines.push_back({source = line, block = _preparse(block_data.block)})
 
         else:
-            parsed_lines.push_back({source = line})
+            parsed_lines.push_back({source = line, block = []})
     
     return parsed_lines
     
@@ -143,18 +136,14 @@ func _find_pair_from_lines_arr(lines: Array, pair_end):
         valid_lines.push_back(line)
 
 
-func _run_line(line):
-    var code = line.pop_front()
-    var args = line
-    printt("running", code)
-    if code in _built_in_keyword_runner:
-        await _built_in_keyword_runner[code].callv(args)
-    else:
-        await runner[code].callv(args)
+func run_line(source = {source = "", block = []}):
+    #print("\n",source.source)
+    var args = _split_args(source.source)
+    var code = args.pop_front()
+    if !code in _runner:
+        return
+    await _runner[code].callv([args, source.block])
 
-
-func run_lines(sources):
-    pass
             
 func _parse_block(lines, start_pair, end_pair):
     var block = []
