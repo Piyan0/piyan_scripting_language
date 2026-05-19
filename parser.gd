@@ -5,6 +5,9 @@ const DELIMITER = " "
 const QUOTE = "\""
 const OPERATOR_LIST = ["==", ">", ">=", "<", "<=", "!="]
 
+const KEYWORD_LABEL = "label"
+const KEYWORD_ENDLABEL = "endlabel"
+const KEYWORD_JUMP = "jump"
 const KEYWORD_IF = "if"
 const KEYWORD_ENDIF = "endif"
 const KEYWORD_LOOP= "loop"
@@ -14,9 +17,11 @@ const KEYWORD_EXIT= "exit"
 
 var variable = {
     x = true,
-    y = 1,
+    y = true,
     z = true
 }
+
+var _labels = {}
 
 var _block = {
     KEYWORD_IF : KEYWORD_ENDIF,
@@ -41,17 +46,36 @@ var _keyword_split = {
 var _runner = {
     # remaining_lines add arg
     KEYWORD_IF : func(args, block):
-        var _var = _get_var(args[0])
-        var op = args[1]
-        var expected_value = args[2]
-        
-        if _is_compare_pass(_var, str_to_var(expected_value), op):
- 
-            for source in block:
-                if source.source == KEYWORD_EXIT:
-                    return
-                await run_line(source)
+            var _var = _get_var(args[0])
+            var op = args[1]
+            var expected_value = args[2]
+            
+            if _is_compare_pass(_var, str_to_var(expected_value), op):
+                for source in block:
+                    await run_line(source)
             ,
+
+    KEYWORD_LOOP : func(_args, block):
+            while true:
+                for source in block:
+                    var code = source.source
+                    if code == KEYWORD_BREAK:
+                        return
+                    await run_line(source)
+            ,
+    KEYWORD_JUMP : func(args, _block):
+        var label_name = args[0]
+        var source_list= []
+        for line in _labels[label_name]:
+            source_list.append({
+                source = line,
+                block = []
+            })
+
+        for source in source_list:
+            var code = source.source
+            await run_line(source)
+        ,
         
     "text" : func(args, block):
         print("text with ", args[0])        
@@ -60,17 +84,25 @@ var _runner = {
                 
 }
 
+var _is_exit = false
     
-func from_text(path):
+func from_path(path):
     var file = FileAccess.open(path, FileAccess.READ)
-    var lines = _split_lines(file.get_as_text())
+    await from_text(file.get_as_text())
+
+
+func from_text(text):
+    var labels = _parse_label(text)
+    _labels = labels.labels
+
+    _is_exit = false
+    var lines = labels.main_commands
     var parsed = _preparse(lines)
+
     for line in parsed:
-        if line.source == KEYWORD_EXIT:
-            return
         await run_line(line)
     
-    
+
 func _split_args(line):
     var args = []
     var word = ""
@@ -102,13 +134,17 @@ func _preparse(lines: Array):
     var parsed_lines = []
     while !lines.is_empty():
         var line = lines.pop_front()
-        if line.begins_with(KEYWORD_IF):
-            var block_data = _parse_block(lines, KEYWORD_IF, KEYWORD_ENDIF)
-            for i in range(0, block_data.line_count):
-                lines.pop_front()
-            parsed_lines.push_back({source = line, block = _preparse(block_data.block)})
-
-        else:
+        var is_line_added = false
+        for block_keyword in _block.keys():
+            if line.begins_with(block_keyword):
+                is_line_added = true
+                var block_data = _parse_block(lines, block_keyword, _block[block_keyword])
+                for i in range(0, block_data.line_count):
+                    lines.pop_front()
+                parsed_lines.push_back({source = line, block = _preparse(block_data.block)})
+                break
+        
+        if !is_line_added:
             parsed_lines.push_back({source = line, block = []})
     
     return parsed_lines
@@ -126,23 +162,18 @@ func _split_lines(lines_str):
     return lines
 
 
-func _find_pair_from_lines_arr(lines: Array, pair_end):
-    var line_count = 0
-    var valid_lines = []
-    for line in lines:
-        if line == pair_end:
-            return {lines = lines, line_count = line_count}
-        line_count += 1
-        valid_lines.push_back(line)
-
-
 func run_line(source = {source = "", block = []}):
-    #print("\n",source.source)
+    if _is_exit:
+        return
+
     var args = _split_args(source.source)
     var code = args.pop_front()
-    if !code in _runner:
-        return
-    await _runner[code].callv([args, source.block])
+
+    if code == KEYWORD_EXIT:
+        _is_exit = true
+
+    if code in _runner:
+        await _runner[code].callv([args, source.block])
 
             
 func _parse_block(lines, start_pair, end_pair):
@@ -189,3 +220,30 @@ func _is_compare_pass(var_source, expected_str, operator):
             return var_source <= expected_str
         "!=":
             return var_source != expected_str
+
+
+func _parse_label(text):
+    var main_label = []
+    var labels = {}
+    var label_lines = []
+    var lines = _split_lines(text)
+    var current_label = ""
+    var main_commands = []
+    for line in lines:
+        if line.begins_with(KEYWORD_LABEL):
+            var label_split = line.split(" ")
+            var label_name = label_split[1]
+            current_label = label_name
+            continue
+        elif line.begins_with(KEYWORD_ENDLABEL):
+            labels[current_label] = label_lines
+            current_label = ""
+            label_lines = []
+            continue
+            
+        if !current_label.is_empty():
+            label_lines.append(line)
+        else:
+            main_commands.append(line)
+    
+    return {labels = labels, main_commands = main_commands}

@@ -10,12 +10,15 @@ input "masukan angka" $my_var
 endloop
 
 label my_label
+
 text godot "halo ini godot"
 select_item $inventory_item
 if $inventory_item == 12
     jump benar
     exit
 endif
+
+endlabel
 
 label benar
     text hawa "wah ini benar bro keren..."

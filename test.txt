@@ -1,12 +1,20 @@
-if $y==1
-exit
-        text salwa
-        if $x == true
-            text this-is-nested-loop...
-                if $z == true
-                    text third...
-                endif
-        endif
-endif
+label my_label
+    text "this is my girlfriend..."
+    text salwaaa
+endlabel
 
-text anjay-mabar
+label working
+    text "piyan start to work.."
+endlabel
+
+loop
+    text keren
+    jump my_label
+    jump working
+    if $y == true
+        text anjay
+    endif
+    break
+endloop
+
+text "end of the loop..."
