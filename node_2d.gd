@@ -7,6 +7,7 @@ class Variable:
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
     var x = await PiyanScript.new()
-    x.from_path("res://test.txt")
+    x.from_path("res://test.psl")
+
     
     

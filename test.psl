@@ -1,0 +1,12 @@
+text "anjay mabar"
+text "keren bro"
+shop
+
+loop 
+    text "start"
+    jump anjay
+endloop
+
+label anjay
+    text "this is anjay"
+endlabel

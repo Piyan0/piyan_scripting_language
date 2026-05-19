@@ -29,23 +29,40 @@ var _block = {
 }
 
 var _keyword_split = {
-    KEYWORD_IF : (func(line):
-        line = line.replace(KEYWORD_IF, "")
+    KEYWORD_IF : func(line: String):
+        line = line.substr(KEYWORD_IF.length() + DELIMITER.length())
         var op = ""
         for operator in OPERATOR_LIST:
             if operator in line:
                 op = operator
                 break
-        var condition = line.split(op)
         
+        if op.is_empty():
+            var split = Array(line.split(DELIMITER))
+            var var_id = split.pop_front().strip_edges()
+            var func_name = var_id.replace("$", "")
+            if func_name in _custom_if_condition:
+                return [KEYWORD_IF, var_id, split]
+            else:
+                return [KEYWORD_IF, var_id, "==", "true"]
+
+        var condition = line.split(op)
         var result = [KEYWORD_IF, condition[0].strip_edges(), op, condition[1].strip_edges()]
         return result
-        ),
+        ,
 }
 
 var _runner = {
     # remaining_lines add arg
     KEYWORD_IF : func(args, block):
+            var func_name = args[0].replace("$", "")
+            if func_name in _custom_if_condition:
+                var is_pass = _custom_if_condition[func_name].callv(args[1])
+                if is_pass:
+                    for source in block:
+                        await run_line(source)     
+                return
+                
             var _var = _get_var(args[0])
             var op = args[1]
             var expected_value = args[2]
@@ -63,6 +80,7 @@ var _runner = {
                         return
                     await run_line(source)
             ,
+
     KEYWORD_JUMP : func(args, _block):
         var label_name = args[0]
         var source_list= []
@@ -77,15 +95,30 @@ var _runner = {
             await run_line(source)
         ,
         
-    "text" : func(args, block):
+    "text" : func(args, block, remaining_commands):
         print("text with ", args[0])        
+        if remaining_commands.pop_back() == null || remaining_commands.pop_back() != "text":
+            print("showing dialogue...")
+        await Engine.get_main_loop().create_timer(1).timeout
+        ,
+
+    "shop" : func(args, block, remaining_commands):
+        print("shopping")        
         await Engine.get_main_loop().create_timer(1).timeout
         ,
                 
 }
 
+
+var _custom_if_condition = {
+    "test" = func(text):
+        if text == "anjay":
+            return true
+
+        return false
+}
+
 var _is_exit = false
-    
 func from_path(path):
     var file = FileAccess.open(path, FileAccess.READ)
     await from_text(file.get_as_text())
@@ -98,10 +131,17 @@ func from_text(text):
     _is_exit = false
     var lines = labels.main_commands
     var parsed = _preparse(lines)
+    await _run_parsed_lines(parsed)
 
-    for line in parsed:
-        await run_line(line)
+
+func _run_parsed_lines(parsed_lines):
+    var remaining_commands = _get_commands_from_sources(parsed_lines)
+
+    for line in parsed_lines:
+        remaining_commands.pop_front()
+        await run_line(line, remaining_commands)
     
+
 
 func _split_args(line):
     var args = []
@@ -162,7 +202,7 @@ func _split_lines(lines_str):
     return lines
 
 
-func run_line(source = {source = "", block = []}):
+func run_line(source = {source = "", block = []}, remaining_commands = []):
     if _is_exit:
         return
 
@@ -173,7 +213,7 @@ func run_line(source = {source = "", block = []}):
         _is_exit = true
 
     if code in _runner:
-        await _runner[code].callv([args, source.block])
+        await _runner[code].callv([args, source.block, remaining_commands])
 
             
 func _parse_block(lines, start_pair, end_pair):
@@ -247,3 +287,12 @@ func _parse_label(text):
             main_commands.append(line)
     
     return {labels = labels, main_commands = main_commands}
+
+
+func _get_commands_from_sources(sources):
+    var commands = []
+    for source in sources:
+        var split = _split_args(source.source)
+        commands.append(split[0])
+    
+    return commands
