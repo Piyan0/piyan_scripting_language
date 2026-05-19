@@ -1,0 +1,21 @@
+if $var == 12
+    text salwa "Oh iya juga ya"
+endif
+
+loop
+input "masukan angka" $my_var
+    if $my_var == true
+        text piyan "Oke itu true jir"
+    endif
+endloop
+
+label my_label
+text godot "halo ini godot"
+select_item $inventory_item
+if $inventory_item == 12
+    jump benar
+    exit
+endif
+
+label benar
+    text hawa "wah ini benar bro keren..."
