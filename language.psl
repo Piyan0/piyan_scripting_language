@@ -1,7 +1,7 @@
-set s "Salwa"
-set p "Chloe"
+set _s "Salwa"
+set _p "Chloe"
 
-text s "Halo, Piyan gimana kabarmu"
+text _s "Halo, Piyan gimana kabarmu"
 text p "Eh iya, Sal. Kabarku baik aja kok..."
 jump anjay_mabar
 text s "Halo, piyan nih keren bro"

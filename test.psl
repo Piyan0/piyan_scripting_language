@@ -1,12 +1,12 @@
-text "anjay mabar"
-text "keren bro"
-shop
+if $y == 2
+    text "y is 2"
+endif
 
-loop 
-    text "start"
-    jump anjay
+loop
+    if $y == 2
+        break
+    endif
+    text anjay
 endloop
 
-label anjay
-    text "this is anjay"
-endlabel
+text hawa

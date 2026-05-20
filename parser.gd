@@ -5,7 +5,11 @@ const DELIMITER = " "
 const QUOTE = "\""
 const OPERATOR_LIST = ["==", ">", ">=", "<", "<=", "!="]
 
+const STATUS_BREAK = 0
+const STATUS_RETURN = 1
+
 const KEYWORD_LABEL = "label"
+const KEYWORD_SET = "set"
 const KEYWORD_ENDLABEL = "endlabel"
 const KEYWORD_JUMP = "jump"
 const KEYWORD_IF = "if"
@@ -14,9 +18,10 @@ const KEYWORD_LOOP= "loop"
 const KEYWORD_BREAK= "break"
 const KEYWORD_ENDLOOP= "endloop"
 const KEYWORD_EXIT= "exit"
+
 var variable = {
     x = true,
-    y = true,
+    y = 2,
     z = true
 }
 
@@ -53,14 +58,12 @@ var _keyword_split = {
 }
 
 var _runner = {
-    # remaining_lines add arg
-    KEYWORD_IF : func(args, block):
+    KEYWORD_IF : func(args, block, remaining_commands):
             var func_name = args[0].replace("$", "")
             if func_name in _custom_if_condition:
                 var is_pass = _custom_if_condition[func_name].callv(args[1])
                 if is_pass:
-                    for source in block:
-                        await run_line(source)     
+                    return await _run_parsed_lines(block)
                 return
                 
             var _var = _get_var(args[0])
@@ -68,17 +71,16 @@ var _runner = {
             var expected_value = args[2]
             
             if _is_compare_pass(_var, str_to_var(expected_value), op):
-                for source in block:
-                    await run_line(source)
+                var status = await _run_parsed_lines(block)
+                return status
             ,
 
-    KEYWORD_LOOP : func(_args, block):
+    KEYWORD_LOOP : func(_args, block, remaining_commands):
             while true:
-                for source in block:
-                    var code = source.source
-                    if code == KEYWORD_BREAK:
-                        return
-                    await run_line(source)
+                var status = await _run_parsed_lines(block)
+                print("while status ", status)
+                if status != null:
+                    break
             ,
 
     KEYWORD_JUMP : func(args, _block):
@@ -94,10 +96,15 @@ var _runner = {
             var code = source.source
             await run_line(source)
         ,
+    KEYWORD_SET : func(args, block, remaining_commands):
+        var id = args[0]
+        var value = args[1]
+        _setted_var[id] = value
+        ,
         
     "text" : func(args, block, remaining_commands):
         print("text with ", args[0])        
-        if remaining_commands.pop_back() == null || remaining_commands.pop_back() != "text":
+        if remaining_commands.front() == null || remaining_commands.front() != "text":
             print("showing dialogue...")
         await Engine.get_main_loop().create_timer(1).timeout
         ,
@@ -119,6 +126,9 @@ var _custom_if_condition = {
 }
 
 var _is_exit = false
+var _setted_var = {"_internal_var" : "anjay"}
+
+    
 func from_path(path):
     var file = FileAccess.open(path, FileAccess.READ)
     await from_text(file.get_as_text())
@@ -139,8 +149,18 @@ func _run_parsed_lines(parsed_lines):
 
     for line in parsed_lines:
         remaining_commands.pop_front()
-        await run_line(line, remaining_commands)
-    
+        var status = await run_line(line, remaining_commands)
+        
+        if status == STATUS_BREAK:
+            return STATUS_BREAK
+        elif status == STATUS_RETURN:
+            return STATUS_RETURN
+            
+        if line.source == KEYWORD_EXIT:
+            return STATUS_RETURN
+        elif line.source == KEYWORD_BREAK:
+            print(KEYWORD_EXIT)
+            return STATUS_BREAK
 
 
 func _split_args(line):
@@ -167,6 +187,11 @@ func _split_args(line):
     if !word.is_empty():
         args.push_back(word)
     
+    for i in range(0, args.size()):
+        if args[i].begins_with("_"):
+            if args[i] in _setted_var:
+                args[i] = _setted_var[args[i]]
+            
     return args
 
 
@@ -203,19 +228,14 @@ func _split_lines(lines_str):
 
 
 func run_line(source = {source = "", block = []}, remaining_commands = []):
-    if _is_exit:
-        return
-
     var args = _split_args(source.source)
     var code = args.pop_front()
-
-    if code == KEYWORD_EXIT:
-        _is_exit = true
-
+    
     if code in _runner:
-        await _runner[code].callv([args, source.block, remaining_commands])
-
-            
+        var status = await _runner[code].callv([args, source.block, remaining_commands])
+        return status
+        
+        
 func _parse_block(lines, start_pair, end_pair):
     var block = []
     var pair_found = 1
