@@ -1,12 +1,10 @@
-if $y == 2
-    text "y is 2"
+test2 "anjay mabar"
+
+if $y == true
+    test2 "if pass"
+    if $test godots
+        test2 "this is godot"
+    endif
 endif
 
-loop
-    if $y == 2
-        break
-    endif
-    text anjay
-endloop
-
-text hawa
+test2 "keren"

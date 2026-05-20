@@ -1,16 +1,12 @@
-set _s "Salwa"
-set _p "Chloe"
+if $y == 2
+    text "y is 2"
+endif
 
-text _s "Halo, Piyan gimana kabarmu"
-text p "Eh iya, Sal. Kabarku baik aja kok..."
-jump anjay_mabar
-text s "Halo, piyan nih keren bro"
-
-
-label anjay_mabar
-    text s "Ayo kita main bareng!"
-    if $salwa_meet
-        text p "Ayo main gas aja sih"
+loop
+    if $y == 2
+        break
     endif
-    break
-endlabel
+    text anjay
+endloop
+
+text hawa
