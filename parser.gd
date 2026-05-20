@@ -14,12 +14,12 @@ const KEYWORD_LOOP= "loop"
 const KEYWORD_BREAK= "break"
 const KEYWORD_ENDLOOP= "endloop"
 const KEYWORD_EXIT= "exit"
-
 var variable = {
     x = true,
     y = true,
     z = true
 }
+
 
 var _labels = {}
 

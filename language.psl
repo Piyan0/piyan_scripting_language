@@ -1,24 +1,16 @@
-if $var == 12
-    text salwa "Oh iya juga ya"
-endif
+set s "Salwa"
+set p "Chloe"
 
-loop
-input "masukan angka" $my_var
-    if $my_var == true
-        text piyan "Oke itu true jir"
+text s "Halo, Piyan gimana kabarmu"
+text p "Eh iya, Sal. Kabarku baik aja kok..."
+jump anjay_mabar
+text s "Halo, piyan nih keren bro"
+
+
+label anjay_mabar
+    text s "Ayo kita main bareng!"
+    if $salwa_meet
+        text p "Ayo main gas aja sih"
     endif
-endloop
-
-label my_label
-
-text godot "halo ini godot"
-select_item $inventory_item
-if $inventory_item == 12
-    jump benar
-    exit
-endif
-
+    break
 endlabel
-
-label benar
-    text hawa "wah ini benar bro keren..."
