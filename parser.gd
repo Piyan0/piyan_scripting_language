@@ -1,6 +1,9 @@
 class_name PiyanScript
 extends Node
 
+# syntax
+# code arg1 "arg2"
+
 const DELIMITER = " "
 const QUOTE = "\""
 const OPERATOR_LIST = ["==", ">", ">=", "<", "<=", "!="]
@@ -17,44 +20,54 @@ const Keyword = {
     BREAK = "break",
     ENDLOOP = "endloop", 
     EXIT = "exit"
-    
 }
 
-var variable = {
-    x = 1,
-    y = true,
-}
+var _variable = {}:
+    get():
+        return _get_code_list()
+var _callbacks = {}:
+    get():
+        return _get_code_list()
+        
 var _labels = {}
-var _callbacks = {}
 var _setted_var = {}
 
 
 func _init() -> void:
-    _callbacks.test = func(arg):
-        # print("args ", arg)
+    _setted_var._internal_var = "this is internal var."
+    
+
+#virtual
+func _get_variable_list():
+    var variable = {}
+    variable.my_var = true
+    return variable
+
+
+#virtual
+func _get_code_list():
+    var codes = {}
+    
+    codes.test = func(arg):
         if arg == "godot":
             return true
         return false
-
-    _callbacks.test2 = func(args, remaining_commands):
+        
+    codes.test2 = func(args, remaining_commands):
         print("test2 with ", args[0])        
         await Engine.get_main_loop().create_timer(1).timeout
-        
-    _setted_var.test = "_internal var"
-
-    # print(_split_args("anjay \"keren euy\""))
-    # print(_check_if_conditions("if $test oke"))
-
     
+    return codes
+
+
 func from_path(path):
     var file = FileAccess.open(path, FileAccess.READ)
     await from_text(file.get_as_text())
 
 
 func from_text(text):
-    var labels = _parse_label(text)
-    _labels = labels.labels
-    var lines = labels.main_commands
+    _labels = _parse_label(text)
+    var lines = _labels.main
     # print(lines)
     await run(lines)
 
@@ -83,6 +96,13 @@ func _split_args(line):
         if args[i].begins_with("_"):
             if args[i] in _setted_var:
                 args[i] = _setted_var[args[i]]
+    #print(args)
+    for i in range(0, args.size()):
+        var arg = args[i]
+        for internal_var_id in _setted_var.keys():
+            if internal_var_id in arg:
+                arg = arg.replace(internal_var_id, _setted_var[internal_var_id])
+                args[i] = arg
             
     return args
     
@@ -101,8 +121,8 @@ func _split_lines(lines_str):
     
 func _get_var(var_str):
     var var_id = var_str.replace("$", "")
-    assert(var_id in variable, str(var_id))
-    return variable[var_id]
+    assert(var_id in _variable, str(var_id))
+    return _variable[var_id]
 
 
 func _is_compare_pass(source_var, operator, expected_var):
@@ -123,15 +143,13 @@ func _is_compare_pass(source_var, operator, expected_var):
 
 
 func _parse_label(text):
-    var main_label = []
-    var labels = {}
+    var labels = {main = []}
     var label_lines = []
     var lines = _split_lines(text)
     var current_label = ""
-    var main_commands = []
     for line in lines:
         if line.begins_with(Keyword.LABEL):
-            var label_split = line.split(" ")
+            var label_split = line.split(DELIMITER)
             var label_name = label_split[1]
             current_label = label_name
             continue
@@ -144,9 +162,9 @@ func _parse_label(text):
         if !current_label.is_empty():
             label_lines.append(line)
         else:
-            main_commands.append(line)
+            labels.main.append(line)
     
-    return {labels = labels, main_commands = main_commands}
+    return labels
 
 
 func _get_commands_from_sources(lines):
@@ -156,7 +174,6 @@ func _get_commands_from_sources(lines):
         commands.append(split[0])
     
     return commands
-
 
 
 func _check_if_conditions(code = "if $y == on"):
@@ -169,7 +186,7 @@ func _check_if_conditions(code = "if $y == on"):
     if result != null:
         var match = result.strings
         # print(match)
-        return _is_compare_pass(variable[match[1]], match[2], str_to_var(match[3]))
+        return _is_compare_pass(_variable[match[1]], match[2], str_to_var(match[3]))
     else:
         # if $(x) (args)]
         regex.compile(r"if \$(\w+)\s*(.*)")
@@ -177,14 +194,13 @@ func _check_if_conditions(code = "if $y == on"):
         var match = result.strings
         var id = match[1]
 
-        if id in variable:
-            return _is_compare_pass(variable[match[1]], "==", true)
+        if id in _variable:
+            return _is_compare_pass(_variable[match[1]], "==", true)
         else:
             assert(id in _callbacks, str(id))
             var args = _split_args(match[2])
             # print("args ", args)
             return _callbacks[id].callv(args)
-
 
 
 func run(lines: Array):
@@ -202,9 +218,9 @@ func run(lines: Array):
         var code: String = args.pop_front()
 
         if skip_depth > 0:
-            if code.begins_with(Keyword.IF):
+            if code.begins_with(Keyword.IF) || code.begins_with(Keyword.LOOP):
                 skip_depth += 1
-            elif code.begins_with(Keyword.ENDIF):
+            elif code.begins_with(Keyword.ENDIF) || code.begins_with(Keyword.ENDLOOP):
                 skip_depth -= 1
             line_index += 1
             continue
@@ -212,8 +228,32 @@ func run(lines: Array):
         if code.begins_with(Keyword.IF):
             if !_check_if_conditions(line):
                 skip_depth = 1
+                
         elif code.begins_with(Keyword.EXIT):
             break
+        
+        elif code.begins_with(Keyword.LOOP):
+            loop_stack.append(line_index)
+        
+        elif code.begins_with(Keyword.ENDLOOP):
+            line_index = loop_stack.pop_back()
+            continue
+        
+        elif code.begins_with(Keyword.BREAK):
+            loop_stack.pop_back()
+            skip_depth = 1
+            continue
+        
+        elif code.begins_with(Keyword.JUMP):
+            run(_labels[args[0]])
+            return
+        
+        elif code.begins_with(Keyword.SET):
+            var id = args[0]
+            var value = args[1]
+            _setted_var[id] = value
+            #print(_setted_var)
+            #printt(id, value)
         
         elif code in ignore_line:
             pass

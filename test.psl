@@ -1,10 +1,13 @@
-test2 "anjay mabar"
+set _c "Salwa"
 
-if $y == true
-    test2 "if pass"
-    if $test godots
-        test2 "this is godot"
-    endif
-endif
+loop
+    test2 "My girlfriend name is _c."
+    loop
+        test2 _c
+        break
+    endloop
+    break
+endloop
 
-test2 "keren"
+test2 "this is cool"
+
