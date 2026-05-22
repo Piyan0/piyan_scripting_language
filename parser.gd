@@ -66,7 +66,7 @@ func from_path(path):
 
 
 func from_text(text, internal_variable = {}):
-    _internal_var = internal_variable
+    _setted_var = internal_variable
     _labels = _parse_label(text)
     var lines = _labels.main
     await run(lines)
