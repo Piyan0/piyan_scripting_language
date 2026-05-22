@@ -24,7 +24,7 @@ const Keyword = {
 
 var _variable = {}:
     get():
-        return _get_code_list()
+        return _get_variable_list()
 var _callbacks = {}:
     get():
         return _get_code_list()
@@ -259,6 +259,7 @@ func run(lines: Array):
             pass
 
         else:
+            # printt("code ",code, "callback ", _callbacks)
             assert(code in _callbacks, str(code))
             await _callbacks[code].callv([args, code_list.slice(line_index + 1)])
         
