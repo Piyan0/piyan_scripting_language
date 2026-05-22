@@ -1,4 +1,4 @@
-class_name PiyanScript
+class_name PiyanScriptingLanguage
 extends Node
 
 # syntax
@@ -65,10 +65,10 @@ func from_path(path):
     await from_text(file.get_as_text())
 
 
-func from_text(text):
+func from_text(text, internal_variable = {}):
+    _internal_var = internal_variable
     _labels = _parse_label(text)
     var lines = _labels.main
-    # print(lines)
     await run(lines)
 
 

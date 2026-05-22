@@ -1,13 +1,7 @@
-set _c "Salwa"
-
 loop
-    test2 "My girlfriend name is _c."
-    loop
-        test2 _c
-        break
-    endloop
+    test2 "Salwa is my best girl."
+    test2 "And Fangky is my very bestfriend."
     break
 endloop
 
-test2 "this is cool"
-
+test2 "This is the end of the loop."
